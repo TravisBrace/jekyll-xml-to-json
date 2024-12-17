@@ -27,10 +27,10 @@ Setup
 Add the following gems to your Jekyll site's `Gemfile` if they are not already included:
 
 ```
-group :jekyll_plugins do\
-  gem 'nokogiri'\
-  gem 'open-uri'\
-  gem 'json'\
+group :jekyll_plugins do
+  gem 'nokogiri'
+  gem 'open-uri'
+  gem 'json'
 end
 ```
 
@@ -41,59 +41,59 @@ Run `bundle install` after adding these gems to your `Gemfile` to ensure they ar
 Include the following Ruby code in a new file at `_plugins/xml_to_json_generator.rb`:
 
 ```
-if Jekyll.env == 'production'\
-  require 'nokogiri'\
-  require 'open-uri'\
-  require 'json'
+require 'jekyll'  # Load Jekyll before checking the environment
+require 'nokogiri'
+require 'open-uri'
+require 'json'
 
-  module Jekyll\
-    class XMLToJSONGenerator < Generator\
-      safe true
+  module Jekyll
+    class XMLToJSONGenerator < Generator
+      safe true
 
-      def generate(site)\
-        xml_sources = site.config['xml_to_json']
+      def generate(site)
+        xml_sources = site.config['xml_to_json'] || []
 
-        xml_sources.each do |source|\
-          xml_url = source['url']\
-          output_filename = source['output']
+        xml_sources.each do |source|
+          xml_url = source['url']
+          output_key = source['output']
 
-          # Fetch and parse the XML data\
-          xml_data = Nokogiri::XML(URI.open(xml_url))
+          # Fetch and parse the XML data
+          xml_data = Nokogiri::XML(URI.open(xml_url))
 
-          # Convert the entire XML to a recursive hash\
-          json_data = xml_to_hash(xml_data.root)
+          # Convert the entire XML to a recursive hash
+          json_data = xml_to_hash(xml_data.root)
 
-          # Save the JSON file to the _data folder\
-          File.open(File.join(site.source, '_data', "#{output_filename}.json"), 'w') do |f|\
-            f.write(JSON.pretty_generate(json_data))\
-          end\
-        end\
-      end
+          # Instead of saving to a file, inject directly into site.data
+          site.data[output_key] = json_data
+        end
+      end
 
-      private
+      private
 
-      # Recursively converts an XML node and its children to a hash\
-      def xml_to_hash(node)\
-        result = {}
+      # Recursively converts an XML node and its children to a hash
+      def xml_to_hash(node)
+        result = {}
 
-        node.attributes.each do |name, attr|\
-          result[name] = attr.value\
-        end
+        # Add element's attributes
+        node.attributes.each do |name, attr|
+          result[name] = attr.value
+        end
 
-        node.element_children.each do |child|\
-          result[child.name] ||= []\
-          result[child.name] << xml_to_hash(child)\
-        end
+        # Add child elements recursively
+        node.element_children.each do |child|
+          result[child.name] ||= []
+          result[child.name] << xml_to_hash(child)
+        end
 
-        result['text'] = node.text.strip unless node.text.strip.empty?
+        # Add element's text content (if it exists)
+        text_content = node.text.strip
+        result['text'] = text_content unless text_content.empty?
 
-        result\
-      end\
-    end\
-  end\
-else\
-  Jekyll.logger.info "Skipping plugin in non-production environment."\
-end
+        result
+      end
+    end
+  end
+
 ```
 
 ### Step 3: Configure the Plugin in `_config.yml`
@@ -101,8 +101,8 @@ end
 In your site's `_config.yml`, you need to specify the XML sources and the output filenames. Here's how to configure it:
 
 ```
-xml_to_json:\
-  - url: 'http://example.com/feed.xml'\
+xml_to_json:
+  - url: 'http://example.com/feed.xml'
     output: 'example_feed'
 ```
 
@@ -123,7 +123,7 @@ The plugin will then fetch the specified XML files, convert them into JSON, and 
 Once the JSON files are generated and stored in `_data`, you can access the data in your Liquid templates like this:
 
 ```
-{% assign data = site.data.example_feed %}\
+{% assign data = site.data.example_feed %}
 <p>{{ data.root.text }}</p>
 ```
 
